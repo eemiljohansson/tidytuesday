@@ -1,0 +1,54 @@
+---
+title: "British Library Funding"
+format: html
+---
+
+# Load packages and data
+
+```{r}
+# Data provided by Andy Jackson. See
+# https://anjackson.net/2024/11/27/updating-the-data-on-british-library-funding/
+# Minimal cleaning required.
+
+library(tidyverse)
+library(googlesheets4)
+library(janitor)
+
+# Call the auth function to make things run without prompts.
+googlesheets4::gs4_auth("emil.johansson@scilifelab.com")
+bl_funding <- googlesheets4::read_sheet(
+  "1uxjiuWYZrALF2mthmiYbUPieu1dEdEwv9GB8dEAizso"
+) |>
+  janitor::clean_names() |>
+  dplyr::mutate(
+    year = as.integer(.data$year)
+  )
+```
+
+# Plotting the data
+
+```{r}
+bl_funding |>
+  ggplot(aes(x = year, y = nominal_gbp_millions)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = scales::label_number(suffix = "M")) +
+  labs(
+    title = "Funding for the British Library",
+    subtitle = "Nominal GBP in millions",
+    x = "Year",
+    y = "Funding (GBP millions)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 14),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14)
+  )
+
+ggsave("/Users/emiljohansson/R/tidytuesday/projects/2025/2025-07-15/british_library_funding.png", width = 8, height = 5, dpi = 300)
+```
+
+
+

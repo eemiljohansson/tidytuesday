@@ -1,0 +1,165 @@
+---
+title: "MTA Permanent Art Catalog"
+format: html
+---
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load('2025-07-22')
+
+mta_art <- tuesdata$mta_art
+station_lines <- tuesdata$station_lines
+```
+
+```{r}
+# Which agency has the most art?
+mta_art |>
+  dplyr::count(agency, sort = TRUE) |>
+  ggplot(aes(x = reorder(agency, n), y = n)) +
+  geom_col() +
+  labs(
+    title = "Top 10 Agencies with Most Art",
+    x = "Agency",
+    y = "Number of Art Pieces"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+library(treemapify)
+library(patchwork)
+
+make_ggtreemap <- function(df, column, max_categories = 50, title = "Treemap") {
+  # Prepare and count
+  items <- df %>%
+    dplyr::pull({{ column }}) %>%
+    stringr::str_split(", ") %>%
+    unlist() %>%
+    na.omit() %>%
+    stringr::str_trim() %>%
+    .[. != ""]
+  tab <- as.data.frame(table(items))
+  tab <- tab %>% arrange(desc(Freq)) %>% head(max_categories)
+  # Plot
+  ggplot(tab, aes(area = Freq, fill = items, label = items)) +
+    geom_treemap(show.legend = FALSE) +
+    geom_treemap_text(colour = "white", place = "center", grow = TRUE, reflow = TRUE, min.size = 3) +
+    labs(title = title) +
+    theme(plot.title = element_text(hjust = 0.5, size = 18, face = "bold"))
+}
+
+treemap_columns <- c(
+  "station_name", 
+  "Biological process", 
+  "Molecular function", 
+  "Disease involvement", 
+  "Subcellular location", 
+  "Secretome location"
+)
+
+treemap_plots <- lapply(treemap_columns, function(col) {
+  make_ggtreemap(filtered_hpa, !!sym(col), title = col)
+})
+
+# You can control the number of rows/columns in the layout
+combined_plot <- wrap_plots(treemap_plots, ncol = 2)
+
+# Display
+print(combined_plot)
+
+# Save as PNG and PDF
+ggsave("figures/figure 3/Combined_Treemaps.png", combined_plot, width = 16, height = 18, dpi = 300)
+ggsave("figures/figure 3/Combined_Treemaps.pdf", combined_plot, width = 16, height = 18, dpi = 300)
+
+```
+
+```{r}
+library(tidyverse)
+library(ggwordcloud)
+library(patchwork)
+library(RColorBrewer)
+```
+
+```{r}
+make_wordcloud <- function(df, column, max_words = 50, title = "Wordcloud") {
+  # Pull and clean input column
+  cleaned_words <- df %>%
+    dplyr::pull({{ column }}) %>%
+    str_replace_all("<[^>]+>", " ") %>%        # remove HTML tags
+    str_replace_all("&[a-zA-Z]+;", " ") %>%    # remove &nbsp; etc
+    str_replace_all("[^\\w\\s,]", " ") %>%     # remove symbols except commas
+    str_split(",\\s*") %>%                     # split comma-separated entries
+    unlist() %>%
+    str_trim() %>%
+    tolower() %>%
+    discard(~ .x == "" || is.na(.x))
+
+  # Count and limit
+  word_counts <- as.data.frame(table(cleaned_words), stringsAsFactors = FALSE) %>%
+    arrange(desc(Freq)) %>%
+    slice_head(n = max_words)
+
+  # Add color column based on frequency
+  word_counts <- word_counts %>%
+    mutate(color = scales::col_factor(
+      palette = RColorBrewer::brewer.pal(9, "Set2"),
+      domain = NULL
+    )(Freq))
+
+  # Plot
+  ggplot(word_counts, aes(label = cleaned_words, size = Freq, color = color)) +
+    geom_text_wordcloud_area(rm_outside = TRUE, use_richtext = FALSE) +
+    scale_size_area(max_size = 15) +
+    scale_color_identity() +
+    theme_minimal() +
+    labs(title = title) +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+      axis.title = element_blank(),
+      axis.text = element_blank(),
+      axis.ticks = element_blank()
+    )
+}
+```
+
+```{r}
+# Column names to use
+wc_columns <- c("station_name", "line", "artist", "art_date")
+
+# Filter the main dataset by agency
+agency_list <- c("NYCT", "Metro-North", "LIRR")
+
+# Create a named list of plots
+wordcloud_plots <- list()
+
+for (agency in agency_list) {
+  df_agency <- mta_art %>% filter(agency == !!agency)
+
+  agency_wordclouds <- lapply(wc_columns, function(col) {
+    make_wordcloud(df_agency, !!sym(col), title = paste(agency, "-", col))
+  })
+
+  wordcloud_plots[[agency]] <- wrap_plots(agency_wordclouds, ncol = 4)
+}
+```
+
+```{r}
+# Arrange: NYCT on top, Metro-North in middle, LIRR at the bottom
+final_wordcloud_plot <- wordcloud_plots$NYCT /
+                        wordcloud_plots$`Metro-North` /
+                        wordcloud_plots$LIRR
+
+# Display
+print(final_wordcloud_plot)
+
+# Optional: Save
+ggsave("../2025-07-22/mta_wordclouds_combined.png", final_wordcloud_plot, width = 18, height = 12, dpi = 300)
+ggsave("../2025-07-22/mta_wordclouds_combined.pdf", final_wordcloud_plot, width = 18, height = 12)
+```
+
+# SessionInfo
+
+```{r}
+sessionInfo()
+```
+
+End of file.

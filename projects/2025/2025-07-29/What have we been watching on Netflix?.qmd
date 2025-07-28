@@ -1,0 +1,89 @@
+---
+title: "What have we been watching on Netflix?"
+format: html
+---
+
+# Load packages
+
+```{r}
+library(tidyverse)
+library(ggrepel)
+library(scales)
+```
+
+# Load data
+
+```{r}
+movies <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-07-29/movies.csv')
+shows <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-07-29/shows.csv')
+```
+
+# Plots
+
+```{r}
+movies <- movies |>
+  mutate(
+      hrs  = str_extract(runtime, "(?<=\\b)\\d+(?=H)") %>% as.numeric(),
+      mins = str_extract(runtime, "(?<=\\b)\\d+(?=M)") %>% as.numeric(),
+      length = coalesce(hrs, 0) * 60 + coalesce(mins, 0)
+    ) %>% 
+    select(-hrs, -mins)
+
+movies |> head(n = 10)
+```
+
+```{r}
+movies %>% 
+  filter(length < 4*60) %>%
+  mutate(
+    label = if_else(
+      views > 10e6 | length > 3*60,   
+      title,
+      NA_character_
+    )
+  ) %>%
+  ggplot(aes(x = length/60, y = views/1e6)) +
+  
+  # points with size by hours_viewed, fill by available_globally,
+  # black border (color), thin stroke, some transparency:
+  geom_point(
+    aes(size = hours_viewed, fill = available_globally),
+    shape  = 21,
+    color  = "black",   # border
+    stroke = 0.3,       # border thickness
+    alpha  = 0.7
+  ) +
+  
+  geom_text_repel(
+    aes(label = label),
+    na.rm        = TRUE,
+    max.overlaps = 10,
+    size          = 3
+  ) +
+  
+  scale_size_continuous(name = "Hours Viewed") +
+  scale_fill_discrete(name = "Available Globally") +
+  
+  labs(
+    title = "Netflix: Movie Length and Views",
+    x     = "Movie Length (hours)",
+    y     = "Views (in Million)",
+    caption = "Data: Netflix viewing data 2023 - June 2025 | Plot: Distribution of Movie Lengths and Views"
+  ) +
+  
+  scale_x_continuous(labels = label_number(suffix = " hours")) +
+  scale_y_continuous(labels = label_number(suffix = " Million")) +
+  theme_minimal()
+
+ggsave("../2025-07-29/scatter_plot_netflix_movie_length.png", width = 18, height = 12)
+ggsave("../2025-07-29/scatter_plot_netflix_movie_length.pdf", width = 18, height = 12, dpi = 300)
+```
+
+
+# SessionInfo
+
+```{r}
+sessionInfo()
+```
+
+End of file.

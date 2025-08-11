@@ -1,0 +1,82 @@
+---
+title: "Extreme Weather Attribution Studies"
+format: html
+---
+
+# Load packages
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+library(dplyr)
+library(ggplot2)
+library(waffle)
+library(forcats)
+```
+
+# Load data
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load(2025, week = 32)
+
+attribution_studies <- tuesdata$attribution_studies
+attribution_studies_raw <- tuesdata$attribution_studies_raw
+```
+
+# Prepare data
+
+```{r}
+event_counts <- attribution_studies_raw %>%
+  filter(!is.na(cb_region), !is.na(event_type)) %>%
+  count(cb_region, event_type, name = "n") %>%
+  mutate(
+    event_type = fct_infreq(event_type),
+    cb_region  = fct_reorder(cb_region, -n, sum)
+  )
+```
+
+# Plots
+
+```{r}
+
+palette_colors <- RColorBrewer::brewer.pal(n = max(3, length(unique(event_counts$event_type))), name = "Set3")
+
+ggplot(event_counts, aes(fill = event_type, values = n)) +
+  waffle::geom_waffle(
+    n_rows = 5, 
+    color = "white", 
+    size = 0.25, 
+    flip = TRUE
+  ) +
+  facet_wrap(~ cb_region) +
+  scale_fill_manual(values = palette_colors, name = "Event Type") +
+  labs(
+    title = "Climate-Related Events by Type and Region",
+    subtitle = "Each tile represents one recorded event",
+    caption = "Data: Climate Attribution Studies",
+    x = NULL, 
+    y = NULL
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid       = element_blank(),
+    axis.text        = element_blank(),
+    axis.ticks       = element_blank(),
+    legend.position  = "bottom",
+    strip.text       = element_text(face = "bold", size = 12),
+    plot.title       = element_text(face = "bold", size = 18),
+    plot.subtitle    = element_text(size = 13, color = "gray30"),
+    plot.caption     = element_text(size = 10, color = "gray40")
+  )
+
+ggsave("../2025-08-12/waffle climate related events.png", width = 18, height = 12)
+ggsave("../2025-08-12/waffle climate related events.pdf", width = 18, height = 12, dpi = 300)
+```
+
+# SessionInfo
+
+```{r}
+sessionInfo()
+```
+
+End of file.

@@ -1,0 +1,121 @@
+---
+title: "Income Inequality Before and After Taxes"
+format: html
+---
+
+# Load packages
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+```
+
+# Load data
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load(2025, week = 31)
+
+income_inequality_processed <- tuesdata$income_inequality_processed
+income_inequality_raw <- tuesdata$income_inequality_raw
+```
+
+# Prepare data
+
+```{r}
+region_data <- income_inequality_raw |> 
+  distinct(Entity, owid_region) |>
+  filter(!is.na(owid_region)) |>
+  rename(Region = owid_region)
+```
+
+# Plots
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Explicit reference countries per region
+reference_countries <- c("Australia", "Sweden", "United States", "Brazil", "South Africa", "China")
+
+# Prepare long-form data
+plot_data <- income_inequality_processed %>%
+  inner_join(region_data, by = "Entity") %>%
+  pivot_longer(
+    cols = c(gini_mi_eq, gini_dhi_eq),
+    names_to = "gini_type",
+    values_to = "gini_value"
+  ) %>%
+  mutate(
+    gini_type    = recode(
+      gini_type,
+      gini_mi_eq  = "Before tax",
+      gini_dhi_eq = "After tax"
+    ),
+    is_reference = Entity %in% reference_countries
+  )
+
+# Map region to reference country for facet labels
+region_ref_map <- plot_data %>%
+  filter(is_reference) %>%
+  distinct(Region, Entity) %>%
+  mutate(region_label = paste0(Region, " (Ref: ", Entity, ")"))
+
+# Join label into plot_data
+plot_data <- plot_data %>%
+  left_join(region_ref_map |> select(-Entity), by = "Region")
+
+# Non-reference countries only for regression fits
+region_data_no_ref <- plot_data %>% filter(!is_reference)
+
+ggplot() +
+  # Regression fit for regional trend (colored)
+  geom_smooth(
+    data = region_data_no_ref,
+    aes(x = Year, y = gini_value, color = gini_type, group = gini_type),
+    method = "lm",
+    se = TRUE,           # show confidence interval
+    size = 1
+  ) +
+  # Reference country line (black, solid/dashed)
+  geom_line(
+    data = filter(plot_data, is_reference),
+    aes(x = Year, y = gini_value, linetype = gini_type, group = gini_type),
+    color = "black",
+    size = 1.2
+  ) +
+  facet_wrap(~ region_label, scales = "free_y") +
+  scale_color_manual(
+    values = c("Before tax" = "#E41A1C", "After tax" = "#377EB8"),
+    name   = "Tax Status"
+  ) +
+  scale_linetype_manual(
+    values = c("Before tax" = "solid", "After tax" = "dashed"),
+    guide  = "none"
+  ) +
+  labs(
+    title    = "Income Inequality Before and After Taxes",
+    subtitle = "Regional regression trend (colored) with 95% CI, and reference country (black)",
+    x        = "Year",
+    y        = "Gini Index"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "top",
+    panel.grid.minor= element_blank(),
+    strip.text      = element_text(face = "bold", size = 12),
+    plot.title      = element_text(face = "bold", size = 18),
+    plot.subtitle   = element_text(size = 13)
+  )
+
+ggsave("../2025-08-05/line_plot_inequality.png", width = 18, height = 12)
+ggsave("../2025-08-05/line_plot_inequality.pdf", width = 18, height = 12, dpi = 300)
+```
+
+# SessionInfo
+
+```{r}
+sessionInfo()
+```
+
+End of file.

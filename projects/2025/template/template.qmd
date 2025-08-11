@@ -29,6 +29,9 @@ income_inequality_raw <- tuesdata$income_inequality_raw
 
 ```{r}
 
+
+ggsave("../2025-08-05/line_plot_inequality.png", width = 18, height = 12)
+ggsave("../2025-08-05/line_plot_inequality.pdf", width = 18, height = 12, dpi = 300)
 ```
 
 # SessionInfo

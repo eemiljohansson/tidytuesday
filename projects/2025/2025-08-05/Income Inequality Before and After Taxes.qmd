@@ -26,19 +26,9 @@ region_data <- income_inequality_raw |>
   distinct(Entity, owid_region) |>
   filter(!is.na(owid_region)) |>
   rename(Region = owid_region)
-```
 
-# Plots
-
-```{r}
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-
-# Explicit reference countries per region
 reference_countries <- c("Australia", "Sweden", "United States", "Brazil", "South Africa", "China")
 
-# Prepare long-form data
 plot_data <- income_inequality_processed %>%
   inner_join(region_data, by = "Entity") %>%
   pivot_longer(
@@ -55,29 +45,28 @@ plot_data <- income_inequality_processed %>%
     is_reference = Entity %in% reference_countries
   )
 
-# Map region to reference country for facet labels
 region_ref_map <- plot_data %>%
   filter(is_reference) %>%
   distinct(Region, Entity) %>%
   mutate(region_label = paste0(Region, " (Ref: ", Entity, ")"))
 
-# Join label into plot_data
 plot_data <- plot_data %>%
   left_join(region_ref_map |> select(-Entity), by = "Region")
 
-# Non-reference countries only for regression fits
 region_data_no_ref <- plot_data %>% filter(!is_reference)
+```
 
+# Plots
+
+```{r}
 ggplot() +
-  # Regression fit for regional trend (colored)
   geom_smooth(
     data = region_data_no_ref,
     aes(x = Year, y = gini_value, color = gini_type, group = gini_type),
     method = "lm",
-    se = TRUE,           # show confidence interval
+    se = TRUE,
     size = 1
   ) +
-  # Reference country line (black, solid/dashed)
   geom_line(
     data = filter(plot_data, is_reference),
     aes(x = Year, y = gini_value, linetype = gini_type, group = gini_type),

@@ -1,0 +1,92 @@
+---
+title: "Scottish Munros"
+format: html
+---
+
+# Load packages
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+library(gganimate)
+```
+
+# Load data
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load(2025, week = 33)
+
+scottish_munros <- tuesdata$scottish_munros
+```
+
+# Prepare data
+
+```{r}
+year_cols <- c("1891","1921","1933","1953","1969","1974","1981","1984","1990","1997","2021")
+
+# Long format: one row per summit × year, with status label per year
+munros_long <- scottish_munros %>%
+  # keep only needed columns
+  select(xcoord, ycoord, Height_m, all_of(year_cols)) %>%
+  pivot_longer(
+    cols = all_of(year_cols),
+    names_to = "year",
+    values_to = "status"       # e.g. "Munro", "Top", NA, etc.
+  ) %>%
+  mutate(
+    year   = factor(year, levels = year_cols),
+    Height_m = as.numeric(Height_m),
+    is_munro = !is.na(status) & status == "Munro"
+  )
+
+# Color scale range fixed across all frames
+hm_rng <- range(munros_long$Height_m, na.rm = TRUE)
+
+p <- ggplot(munros_long, aes(x = xcoord, y = ycoord)) +
+  # background: all summits faint
+  geom_point(aes(color = Height_m),
+             size = 1.5, alpha = 0.25, show.legend = TRUE) +
+  # highlight: those classified as "Munro" in that year
+  geom_point(data = ~ dplyr::filter(.x, is_munro),
+             aes(color = Height_m),
+             size = 3, alpha = 0.95) +
+  scale_color_viridis_c(
+    name   = "Height (m)",
+    limits = hm_rng,
+    oob    = squish,
+    na.value = "grey70"
+  ) +
+  labs(
+    title    = "Scottish Munros — {closest_state}",
+    subtitle = "Points colored by height (m); bold points are Munros in {closest_state}",
+    x = "x-coordinate", y = "y-coordinate"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "right") +
+  transition_states(year, transition_length = 2, state_length = 1, wrap = FALSE) +
+  ease_aes("cubic-in-out")
+```
+
+# Plots
+
+```{r}
+# Render (GIF)
+animate(
+  p,
+  nframes = length(year_cols) * 8,
+  fps = 8,
+  width = 900,
+  height = 700,
+  renderer = gifski_renderer()
+)
+
+anim_save("../2025-08-19/scottish_munros_heights.gif")
+```
+
+# SessionInfo
+
+```{r}
+sessionInfo()
+```
+
+End of file.

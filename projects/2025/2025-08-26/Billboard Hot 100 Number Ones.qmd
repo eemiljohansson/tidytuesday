@@ -1,0 +1,112 @@
+---
+title: "Billboard Hot 100 Number Ones"
+format: html
+---
+
+# Load packages
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+library(ggrepel)
+library(ggbeeswarm)
+library(ggpubr)
+```
+
+# Specify funcitons
+
+```{r}
+select <- dplyr::select
+filter <- dplyr::filter
+```
+
+# Load data
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load(2025, week = 34)
+
+billboard <- tuesdata$billboard
+topics <- tuesdata$topics
+```
+
+# Prepare data
+
+```{r}
+billboard2 <- billboard %>%
+  mutate(
+    songwriter_is_a_producer = case_when(
+      songwriter_is_a_producer == 1 ~ "Yes",
+      songwriter_is_a_producer == 0 ~ "No",
+      TRUE ~ "Other/NA"
+    )
+  )
+
+long_df <- billboard2 %>%
+  select(song, artist, songwriter_is_a_producer,
+         overall_rating, divisiveness, intro_length_sec, instrumental_length_sec,
+         length_sec, acousticness, loudness_d_b, happiness, danceability, energy, bpm) %>%
+  pivot_longer(
+    cols = -c(songwriter_is_a_producer, song, artist),
+    names_to = "feature",
+    values_to = "value"
+  )
+
+long_extremes <- long_df %>%
+  group_by(feature, songwriter_is_a_producer) %>%
+  filter(value == min(value, na.rm = TRUE) |
+         value == max(value, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+# Plots
+
+```{r}
+ggplot(long_df, aes(x = songwriter_is_a_producer, y = value, color = songwriter_is_a_producer)) +
+  geom_quasirandom(alpha = 0.6, size = 1.5) +
+  geom_boxplot(alpha = 0.4, outlier.shape = NA, width = 0.3, color = "black", fill = "black") +
+  stat_compare_means(
+    method = "t.test",
+    comparisons = list(c("Yes", "No")),
+    label = "p.signif",
+    tip.length = 0.02
+  ) +
+  stat_compare_means(
+    method = "t.test",
+    comparisons = list(c("Yes", "No")),
+    label = "p.format",
+    tip.length = 0.02,
+    label.y.npc = "top"
+  ) +
+  geom_text_repel(
+    data = long_extremes,
+    aes(label = paste(song, "—", artist)),
+    inherit.aes = TRUE,
+    size = 2.5,
+    max.overlaps = 40,
+    box.padding = 0.3
+  ) +
+  facet_wrap(~ feature, scales = "free_y") +
+  labs(
+    x = "Songwriter is also a producer (blue)",
+    y = "Value",
+    title = "Song characteristics depending on songwriter–producer overlap",
+    subtitle = "Stars = significance levels; values show exact p-values.\nLabeled songs are group extremes (min/max) per feature.",
+    caption = "Data: Billboard Hot 100 Number Ones"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(size = 10, face = "bold")
+  )
+
+ggsave("../2025-08-26/billboard_t_test.png", width = 18, height = 12)
+ggsave("../2025-08-26/billboard_t_test.pdf", width = 18, height = 12, dpi = 300)
+```
+
+# SessionInfo
+
+```{r}
+sessionInfo()
+```
+
+End of file.

@@ -1,0 +1,64 @@
+---
+title: "Australian Frogs"
+format: html
+---
+
+# Load packages
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+```
+
+# Load data
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load(2025, week = 35)
+
+frogID_data <- tuesdata$frogID_data
+frog_names <- tuesdata$frog_names
+```
+
+# Prepare data
+
+```{r}
+frogID_data |> distinct(stateProvince)
+
+# Bar plot of scientificName by stateProvince
+plot_data <- frogID_data |> 
+  filter(!is.na(stateProvince)) |> 
+  count(stateProvince, scientificName, sort = TRUE) |> 
+  group_by(stateProvince) |> 
+  slice_max(n, n = 5) |> 
+  ungroup() |> 
+  mutate(stateProvince = fct_reorder(stateProvince, n, sum))
+```
+
+# Plots
+
+```{r}
+ggplot(plot_data, aes(x = stateProvince, y = n, fill = scientificName)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Top 5 Most Common Frog Species by Australian State/Province",
+    x = "State/Province",
+    y = "Number of Observations",
+    fill = "Scientific Name"
+  ) +
+  theme_minimal() +
+  theme(
+    text = element_text(size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+ggsave("../2025-09-02/frog_bar_plot.png", width = 18, height = 12)
+ggsave("../2025-09-02/frog_bar_plot.pdf", width = 18, height = 12, dpi = 300)
+```
+
+# SessionInfo
+
+```{r}
+sessionInfo()
+```
+
+End of file.

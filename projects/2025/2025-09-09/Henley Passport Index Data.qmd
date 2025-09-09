@@ -1,0 +1,101 @@
+---
+title: "Henley Passport Index Data"
+format: html
+---
+
+# Load packages
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+library(ggrepel)
+library(scales)
+```
+
+# Load data
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load(2025, week = 36)
+
+country_lists <- tuesdata$country_lists
+rank_by_year <- tuesdata$rank_by_year
+```
+
+# Prepare data
+
+```{r}
+labels_df <- rank_by_year %>%
+  group_by(region) %>%
+  filter(year == max(year, na.rm = TRUE)) %>%
+  arrange(rank, country) %>%
+  slice(1) %>%
+  ungroup()
+
+highlight_df <- rank_by_year %>%
+  semi_join(labels_df, by = c("region", "country"))
+
+yr_range <- range(rank_by_year$year, na.rm = TRUE)
+x_pad    <- diff(yr_range) * 0.06
+```
+
+# Plots
+
+```{r}
+ggplot() +
+  geom_line(data = rank_by_year,
+            aes(x = year, y = rank, group = country),
+            color = "grey75", size = 0.5, alpha = 0.6) +
+  geom_point(data = rank_by_year,
+             aes(x = year, y = rank, group = country),
+             color = "grey75", size = 0.6, alpha = 0.6) +
+
+  geom_line(data = highlight_df,
+            aes(x = year, y = rank, color = country, group = country),
+            size = 1.1) +
+  geom_point(data = highlight_df,
+             aes(x = year, y = rank, color = country),
+             size = 1.8) +
+
+  geom_text_repel(
+    data = labels_df,
+    aes(x = year, y = rank, label = country, color = country),
+    direction = "y",
+    nudge_x = x_pad,
+    min.segment.length = 0,
+    segment.color = "grey60",
+    box.padding = 0.25,
+    point.padding = 0.15,
+    size = 3.5,
+    seed = 42
+  ) +
+
+  facet_wrap(~ region) +
+  scale_y_reverse(breaks = pretty_breaks(5)) +
+  scale_x_continuous(breaks = pretty_breaks(6), expand = expansion(mult = c(0.01, 0.12))) +
+  coord_cartesian(xlim = c(yr_range[1], yr_range[2] + x_pad)) +
+  guides(color = "none") +
+  labs(
+    title = "Henley Passport Index Rankings Over Time",
+    subtitle = "Passport rankings from 2006 to 2025, faceted by region",
+    x = "Year",
+    y = "Rank (lower is better)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold")
+  )
+
+ggsave("../2025-08-05/line_plot_passport.png", width = 18, height = 12)
+ggsave("../2025-08-05/line_plot_passport.pdf", width = 18, height = 12, dpi = 300)
+```
+
+# SessionInfo
+
+```{r}
+sessionInfo()
+```
+
+End of file.
